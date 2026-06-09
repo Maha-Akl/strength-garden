@@ -2,55 +2,75 @@
   <div class="app">
     <h1>🏋️‍♀️ Strength Garden</h1>
 
-    <div class="card">
-      <h2>Add Exercise</h2>
+```
+<div class="card">
+  <h2>Add Exercise</h2>
 
-      <div class="add-row">
-        <input
-          v-model="newExercise"
-          placeholder="e.g. Bulgarian Split Squats"
-          @keyup.enter="addExercise"
-        />
+  <div class="add-row">
+    <input
+      v-model="newExercise"
+      placeholder="e.g. Bulgarian Split Squats"
+      @keyup.enter="addExercise"
+    />
 
-        <button @click="addExercise">Add</button>
-      </div>
-    </div>
+    <button @click="addExercise">Add</button>
+  </div>
+</div>
 
-    <div class="card">
-      <h2>Today's Workout</h2>
+<div class="card">
+  <h2>Athlete Progress</h2>
 
-      <div
-        v-for="exercise in exercises"
-        :key="exercise.id"
-        class="exercise"
-      >
-        <label>
-          <input
-            type="checkbox"
-            v-model="exercise.completed"
-          />
-          <span>{{ exercise.name }}</span>
-        </label>
+  <p class="level">
+    🏆 {{ athleteLevel }}
+  </p>
 
-        <button
-          class="delete-button"
-          @click="deleteExercise(exercise.id)"
-        >
-          🗑️
-        </button>
-      </div>
-    </div>
+  <div class="progress-bar">
+    <div
+      class="progress-fill"
+      :style="{ width: progressPercentage + '%' }"
+    ></div>
+  </div>
 
-    <div class="card">
-      <h2>Your Garden</h2>
+  <p>{{ progressPercentage }}% completed today</p>
+</div>
 
-      <div class="garden">
-        {{ garden }}
-      </div>
+<div class="card">
+  <h2>Today's Workout</h2>
 
-      <p>{{ completedCount }} exercises completed today</p>
-      <p>🔥 {{ streak }} day streak</p>
-    </div>
+  <div
+    v-for="exercise in exercises"
+    :key="exercise.id"
+    class="exercise"
+  >
+    <label>
+      <input
+        type="checkbox"
+        v-model="exercise.completed"
+      />
+      <span>{{ exercise.name }}</span>
+    </label>
+
+    <button
+      class="delete-button"
+      @click="deleteExercise(exercise.id)"
+    >
+      🗑️
+    </button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Your Garden</h2>
+
+  <div class="garden">
+    {{ garden }}
+  </div>
+
+  <p>{{ completedCount }} exercises completed today</p>
+  <p>🔥 {{ streak }} day streak</p>
+</div>
+```
+
   </div>
 </template>
 
@@ -95,7 +115,33 @@ watch(
 )
 
 const completedCount = computed(() => {
-  return exercises.value.filter(exercise => exercise.completed).length
+  return exercises.value.filter(
+    exercise => exercise.completed
+  ).length
+})
+
+const progressPercentage = computed(() => {
+  if (exercises.value.length === 0) return 0
+
+  return Math.round(
+    (completedCount.value / exercises.value.length) * 100
+  )
+})
+
+const athleteLevel = computed(() => {
+  if (progressPercentage.value === 0) {
+    return 'Seed Athlete 🌱'
+  }
+
+  if (progressPercentage.value < 50) {
+    return 'Building Strength 💪'
+  }
+
+  if (progressPercentage.value < 100) {
+    return 'Strong Momentum 🔥'
+  }
+
+  return 'Workout Complete 🏆'
 })
 
 const garden = computed(() => {
@@ -212,6 +258,28 @@ button:hover {
   font-size: 3rem;
   text-align: center;
   margin: 20px 0;
+}
+
+.level {
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 20px;
+  background: #334155;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 15px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #22c55e;
+  border-radius: 999px;
+  transition: width 0.3s ease;
 }
 
 p {
