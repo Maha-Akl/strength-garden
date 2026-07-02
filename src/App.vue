@@ -1,5 +1,9 @@
 <template>
-  <div class="app">
+  <div class="app" :class="{ light: !isDark }">
+    <button class="theme-toggle" @click="isDark = !isDark">
+      {{ isDark ? '☀️' : '🌙' }}
+    </button>
+
     <h1>🏋️‍♀️ Strength Garden</h1>
 
     <div class="card">
@@ -108,6 +112,7 @@ const savedDate = localStorage.getItem('lastWorkoutDate')
 const newExercise = ref('')
 const streak = ref(Number(localStorage.getItem('streak')) || 0)
 const xp = ref(Number(localStorage.getItem('xp')) || 0)
+const isDark = ref(localStorage.getItem('theme') !== 'light')
 
 const exercises = ref(
   savedExercises || [
@@ -181,6 +186,10 @@ watch(streak, value => {
   localStorage.setItem('streak', value)
 })
 
+watch(isDark, value => {
+  localStorage.setItem('theme', value ? 'dark' : 'light')
+})
+
 const completedCount = computed(() => {
   return exercises.value.filter(exercise => exercise.completed).length
 })
@@ -252,6 +261,7 @@ body {
   max-width: 700px;
   margin: auto;
   padding: 2rem;
+  position: relative;
 }
 
 h1,
@@ -414,5 +424,44 @@ button:hover {
 p {
   text-align: center;
   font-size: 1.1rem;
+}
+
+/* Theme toggle */
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  font-size: 1.4rem;
+  padding: 8px;
+}
+
+/* Light theme */
+.app.light {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.app.light h1,
+.app.light h2 {
+  color: #0f172a;
+}
+
+.app.light .card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.app.light .exercise {
+  background: #f1f5f9;
+  label {
+    color: #0f172a;
+  }
+}
+
+.app.light input {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
 }
 </style>
