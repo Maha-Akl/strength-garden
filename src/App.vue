@@ -95,6 +95,14 @@
       </div>
     </div>
 
+    <button
+      class="rest-button"
+      :class="{ active: restDay }"
+      @click="toggleRestDay"
+    >
+      {{ restDay ? '✅ Rest Day (+5 XP)' : '😴 Mark Rest Day' }}
+    </button>
+
     <button class="reset-button" @click="resetToday">
       Reset Today's Workout
     </button>
@@ -113,6 +121,7 @@ const newExercise = ref('')
 const streak = ref(Number(localStorage.getItem('streak')) || 0)
 const xp = ref(Number(localStorage.getItem('xp')) || 0)
 const isDark = ref(localStorage.getItem('theme') !== 'light')
+const restDay = ref(localStorage.getItem('restDate') === today)
 
 const exercises = ref(
   savedExercises || [
@@ -152,6 +161,17 @@ function resetToday() {
     ...exercise,
     completed: false
   }))
+}
+
+function toggleRestDay() {
+  restDay.value = !restDay.value
+
+  if (restDay.value) {
+    xp.value += 5
+    localStorage.setItem('restDate', today)
+  } else {
+    localStorage.removeItem('restDate')
+  }
 }
 
 watch(
@@ -212,6 +232,7 @@ const athleteLevel = computed(() => {
 })
 
 const garden = computed(() => {
+  if (restDay.value) return '😴 🌙 🛌'
   if (completedCount.value === 0) return '🌱'
 
   const plants = ['🌱', '🪴', '🌷', '🌻', '🌳', '🍄', '🌸']
@@ -409,6 +430,20 @@ button:hover {
 .badge.locked {
   opacity: 0.35;
   filter: grayscale(1);
+}
+
+.rest-button {
+  width: 100%;
+  margin-top: 1.5rem;
+  background: #8b5cf6;
+}
+
+.rest-button:hover {
+  background: #7c3aed;
+}
+
+.rest-button.active {
+  background: #6d28d9;
 }
 
 .reset-button {
