@@ -1,5 +1,5 @@
 <template>
-  <div class="app" :class="{ light: !isDark }">
+  <div class="app">
     <button class="theme-toggle" @click="isDark = !isDark">
       {{ isDark ? '☀️' : '🌙' }}
     </button>
@@ -114,14 +114,37 @@ import { ref, computed, watch } from 'vue'
 
 const today = new Date().toDateString()
 
-const savedExercises = JSON.parse(localStorage.getItem('exercises'))
+function yesterday() {
+  const date = new Date()
+  date.setDate(date.getDate() - 1)
+  return date.toDateString()
+}
+
+function load(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw === null ? fallback : JSON.parse(raw)
+  } catch {
+    return fallback
+  }
+}
+
+const savedExercises = load('exercises', null)
 const savedDate = localStorage.getItem('lastWorkoutDate')
+const isNewDay = savedDate !== today
 
 const newExercise = ref('')
 const streak = ref(Number(localStorage.getItem('streak')) || 0)
 const xp = ref(Number(localStorage.getItem('xp')) || 0)
 const isDark = ref(localStorage.getItem('theme') !== 'light')
 const restDay = ref(localStorage.getItem('restDate') === today)
+
+// The day the streak was last counted, so it can only go up once per day.
+const lastStreakDate = ref(localStorage.getItem('lastStreakDate') || '')
+
+// Exercise ids that have already paid out XP today. Unchecking and
+// rechecking a box no longer farms 10 XP a click.
+const awardedIds = ref(isNewDay ? [] : load('awardedIds', []))
 
 const exercises = ref(
   savedExercises || [
@@ -131,13 +154,14 @@ const exercises = ref(
   ]
 )
 
-if (savedDate !== today) {
+if (isNewDay) {
   exercises.value = exercises.value.map(exercise => ({
     ...exercise,
     completed: false
   }))
 
   localStorage.setItem('lastWorkoutDate', today)
+  localStorage.setItem('awardedIds', '[]')
 }
 
 function addExercise() {
@@ -163,12 +187,25 @@ function resetToday() {
   }))
 }
 
+function registerStreakDay() {
+  if (lastStreakDate.value === today) return
+
+  streak.value = lastStreakDate.value === yesterday() ? streak.value + 1 : 1
+  lastStreakDate.value = today
+  localStorage.setItem('lastStreakDate', today)
+}
+
 function toggleRestDay() {
   restDay.value = !restDay.value
 
   if (restDay.value) {
-    xp.value += 5
     localStorage.setItem('restDate', today)
+
+    // The +5 is paid once per day, not once per click.
+    if (localStorage.getItem('restXpDate') !== today) {
+      xp.value += 5
+      localStorage.setItem('restXpDate', today)
+    }
   } else {
     localStorage.removeItem('restDate')
   }
@@ -176,23 +213,25 @@ function toggleRestDay() {
 
 watch(
   exercises,
-  (newValue, oldValue) => {
+  newValue => {
     localStorage.setItem('exercises', JSON.stringify(newValue))
 
-    const newCompleted = newValue.filter(exercise => exercise.completed).length
-    const oldCompleted = oldValue
-      ? oldValue.filter(exercise => exercise.completed).length
-      : 0
+    const freshlyDone = newValue.filter(
+      exercise =>
+        exercise.completed && !awardedIds.value.includes(exercise.id)
+    )
 
-    if (newCompleted > oldCompleted) {
-      xp.value += 10
+    if (freshlyDone.length > 0) {
+      xp.value += freshlyDone.length * 10
+      awardedIds.value = [
+        ...awardedIds.value,
+        ...freshlyDone.map(exercise => exercise.id)
+      ]
+      localStorage.setItem('awardedIds', JSON.stringify(awardedIds.value))
     }
 
-    if (
-      newValue.length > 0 &&
-      newValue.every(exercise => exercise.completed)
-    ) {
-      streak.value += 1
+    if (newValue.length > 0 && newValue.every(exercise => exercise.completed)) {
+      registerStreakDay()
     }
   },
   { deep: true }
@@ -206,9 +245,16 @@ watch(streak, value => {
   localStorage.setItem('streak', value)
 })
 
-watch(isDark, value => {
-  localStorage.setItem('theme', value ? 'dark' : 'light')
-})
+// The theme class lives on <body> so the light background covers the
+// whole page, not just the 700px column.
+watch(
+  isDark,
+  value => {
+    localStorage.setItem('theme', value ? 'dark' : 'light')
+    document.body.classList.toggle('light', !value)
+  },
+  { immediate: true }
+)
 
 const completedCount = computed(() => {
   return exercises.value.filter(exercise => exercise.completed).length
@@ -276,6 +322,7 @@ body {
   background: #0f172a;
   color: #f8fafc;
   margin: 0;
+  min-height: 100vh;
 }
 
 .app {
@@ -288,7 +335,7 @@ body {
 h1,
 h2 {
   text-align: center;
-  color: #f8fafc;
+  color: inherit;
 }
 
 .card {
@@ -334,6 +381,11 @@ button:hover {
   background: #16a34a;
 }
 
+button:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
 .exercise {
   display: flex;
   justify-content: space-between;
@@ -349,7 +401,7 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #f8fafc;
+  color: inherit;
   font-size: 1.1rem;
 }
 
@@ -472,31 +524,49 @@ p {
 }
 
 /* Light theme */
-.app.light {
+body.light {
   background: #f8fafc;
   color: #0f172a;
 }
 
-.app.light h1,
-.app.light h2 {
-  color: #0f172a;
-}
-
-.app.light .card {
+body.light .card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
 }
 
-.app.light .exercise {
+body.light .exercise {
   background: #f1f5f9;
-  label {
-    color: #0f172a;
-  }
 }
 
-.app.light input {
+body.light .badge {
+  background: #f1f5f9;
+}
+
+body.light .badge small {
+  color: #475569;
+}
+
+body.light .progress-bar {
+  background: #e2e8f0;
+}
+
+body.light input {
   background: #f1f5f9;
   color: #0f172a;
   border: 1px solid #cbd5e1;
+}
+
+body.light input::placeholder {
+  color: #64748b;
+}
+
+body.light .delete-button:hover {
+  background: #e2e8f0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill {
+    transition: none;
+  }
 }
 </style>
